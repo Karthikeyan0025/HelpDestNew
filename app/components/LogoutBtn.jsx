@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 const LogoutBtn = () => {
   const router = useRouter();
 
-  
 
   const handleLogout = async () => {
     const supabase = createClientComponentClient();
