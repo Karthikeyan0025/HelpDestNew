@@ -12,41 +12,72 @@ import {
   Chip,
   Grid,
 } from "@mui/material";
-import AIAssistant from "./AIAssistant";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 const supabase = createClientComponentClient();
 
-export default function CreateForm({ users: propUsers }) {
+export default function CreateForm({ ticketId }) {
   const router = useRouter();
-  const created_by = propUsers ? propUsers : "";
+  const ticket_id = ticketId ? ticketId : "";
+  console.log("ticket_id>>>>", ticket_id);
+  
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [priority, setPriority] = useState("");
+  const [priority, setPriority] = useState("low");
   const [isLoading, setIsLoading] = useState(false);
   const [category, setCategory] = useState("");
   const [attachments, setAttachments] = useState([]);
   const [department, setDepartment] = useState("");
   const [impact, setImpact] = useState("");
-  const [isAIChatOpen, setIsAIChatOpen] = useState(false);
+  const [isAIChatOpen, setIsAIChatOpen] = useState(true);
   const [users, setUsers] = useState([]);
   const [asigned_to, setAssignedTo] = useState("");
   const [status, setStatus] = useState("Open");
-  // console.log("users===> ", users);
+  const [ticketStatusComment, setTicketStatusComment] = useState("");
+
+  useEffect(() => {
+    const fetchTicketDetails = async () => {
+      const { data, error } = await supabase
+        .from('tickets')
+        .select('*')
+        .eq('id', ticket_id) 
+        .single(); // Get a single record
+
+      if (error) {
+        console.error("Error fetching ticket details:", error);
+      } else {
+        // Assuming the ticket data structure matches your state
+        setTitle(data.title || "");
+        setBody(data.body || "");
+        setPriority(data.priority || "low");
+        setCategory(data.category || "");
+        setAttachments(data.attachments || []); // Handle attachments if any
+        setDepartment(data.department || "");
+        setImpact(data.impact || "");
+        setAssignedTo(data.asigned_to || "");
+        setStatus(data.status || "Open");
+        setTicketStatusComment(data.ticket_status_comment || "");
+      }
+    };
+
+    fetchTicketDetails();
+  }, []); // Empty dependency array to run once on mount
 
   const handleSubmit = async (e) => {
+    console.log("innn submit");
+    
     e.preventDefault();
     setIsLoading(true);
 
     // Get current user's email from Supabase
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    const userEmail = user?.email;
-    // console.log('454444444444444444444',userEmail)
+    // const {
+    //   data: { user },
+    // } = await supabase.auth.getUser();
+    // const userEmail = user?.email;
+    // console.log("User Email:", userEmail);
 
-    const description = await getOpenAIDescription(title, body);
-    console.log("Generated Description:", description);
-    const priority = description;
+    // const description = await getOpenAIDescription(title, body);
+    // console.log("Generated Description:", description);
+    // const priority = description;
 
     const newTicket = {
       title,
@@ -56,50 +87,72 @@ export default function CreateForm({ users: propUsers }) {
       attachments,
       department,
       impact,
-      created_by,
       asigned_to,
       status,
-      updated_at: new Date().toISOString(),
+      ticket_status_comment: ticketStatusComment,
+      updated_at: new Date().toISOString()
     };
 
-    const res = await fetch(`${location.origin}/api/tickets`, {
-      method: "POST",
+    // Create the ticket in the database
+    // Remove the following line to prevent creating a new ticket
+    // const res = await fetch(`${location.origin}/api/tickets`, {
+    //   method: "POST",
+    //   headers: { "Content-Type": "application/json" },
+    //   body: JSON.stringify(newTicket),
+    // });
+
+    // Update the existing ticket in the database
+    const res = await fetch(`${location.origin}/api/tickets/${ticket_id}`, { // Use ticket_id for updating
+      method: "PUT", // Change method to PUT for updating
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(newTicket),
     });
-
-    const json = await res.json();
-
-    if (json.error) {
-      console.log(json.error.message);
-      console.log(json.error);
-    }
-
-    if (json.data) {
-      // Send email notification with sender's email
-      const emailRes = await fetch(`${location.origin}/api/send-email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subject: `New Ticket Created: ${title}`,
-          ticketDetails: {
-            title,
-            priority,
-            category,
-            department,
-            impact,
-            description: body,
-            senderEmail: userEmail, // Add sender's email
-          },
-        }),
-      });
-
-      if (!emailRes.ok) {
-        console.log("Failed to send email notification");
-      }
-
-      router.refresh();
+    console.log("res --->",res);
+    
+    // Check if the response is ok and has content
+    if (res.ok) {
+      console.log("dddddddddddddddddddddddd 112");  
+      const json = await res.json(); // Parse JSON only if the response is ok
       router.push("/tickets");
+      router.refresh();
+      if (json.error) {
+        console.log(json.error.message);
+        console.log(json.error);
+      }
+      console.log("sssssssssss",json.data);
+      
+      // if (json.data) {
+      //   console.log("dddddd sasdsdsd");
+        
+      //   // Update the ticket in Supabase after creation
+      //   const { error: updateError } = await supabase
+      //     .from('tickets')
+      //     .update({
+      //       title,
+      //       body,
+      //       priority,
+      //       category,
+      //       attachments,
+      //       department,
+      //       impact,
+      //       asigned_to,
+      //       status,
+      //       ticket_status_comment: ticketStatusComment,
+      //     })
+      //     .eq('id', json.data.id); // Assuming json.data.id contains the created ticket's ID
+      //   console.log("line 134 innnnnnnnnnnnnnnnn");
+        
+      //   if (updateError) {
+      //     console.error("Error updating ticket in Supabase:", updateError);
+      //   }
+      //   console.log("update done in 138");
+        
+      //   router.refresh();
+      //   router.push("/tickets");
+      // }
+    } 
+    else {
+      console.error("Failed to update ticket:", res.status, res.statusText);
     }
   };
 
@@ -142,21 +195,18 @@ export default function CreateForm({ users: propUsers }) {
         <Grid container spacing={2}>
           <Grid item xs={12} sm={6}>
             <FormControl fullWidth margin="normal">
-              {/* <InputLabel>Title</InputLabel> */}
+              <InputLabel>Title</InputLabel>
               <TextField
-                label="Title"
                 required
-                variant="outlined"
                 onChange={(e) => setTitle(e.target.value)}
                 value={title}
               />
             </FormControl>
-          </Grid>
+          </Grid> 
           <Grid item xs={12} sm={6}>
             <FormControl fullWidth margin="normal">
-              {/* <InputLabel>Description</InputLabel> */}
+              <InputLabel>Description</InputLabel>
               <TextField
-                label="Description" 
                 required
                 multiline
                 onChange={(e) => setBody(e.target.value)}
@@ -168,13 +218,12 @@ export default function CreateForm({ users: propUsers }) {
             <FormControl fullWidth margin="normal">
               <InputLabel>Priority</InputLabel>
               <Select
-                // label="Priority"
                 onChange={(e) => setPriority(e.target.value)}
                 value={priority}
               >
-                <MenuItem value="low">Low</MenuItem>
-                <MenuItem value="medium">Medium</MenuItem>
-                <MenuItem value="high">High</MenuItem>
+                <MenuItem value="Low Priority">Low</MenuItem>
+                <MenuItem value="Medium Priority">Medium</MenuItem>
+                <MenuItem value="High Priority">High</MenuItem>
               </Select>
             </FormControl>
           </Grid>
@@ -183,7 +232,6 @@ export default function CreateForm({ users: propUsers }) {
               <InputLabel>Category</InputLabel>
               <Select
                 required
-                // label="Category"
                 onChange={(e) => setCategory(e.target.value)}
                 value={category}
               >
@@ -199,7 +247,6 @@ export default function CreateForm({ users: propUsers }) {
               <InputLabel>Attachments</InputLabel>
               <TextField
                 type="file"
-                // label="Attachments"
                 inputProps={{ multiple: true }}
                 onChange={handleFileChange}
                 variant="outlined"
@@ -222,7 +269,6 @@ export default function CreateForm({ users: propUsers }) {
             <FormControl fullWidth margin="normal">
               <InputLabel>Impact</InputLabel>
               <Select
-                // label="Impact"
                 required
                 onChange={(e) => setImpact(e.target.value)}
                 value={impact}
@@ -238,7 +284,6 @@ export default function CreateForm({ users: propUsers }) {
             <FormControl fullWidth margin="normal">
               <InputLabel>Department</InputLabel>
               <Select
-                // label="Department"
                 required
                 onChange={(e) => setDepartment(e.target.value)}
                 value={department}
@@ -256,7 +301,6 @@ export default function CreateForm({ users: propUsers }) {
               <InputLabel>Assigned To</InputLabel>
               <Select
                 required
-                // label="Assigned To"
                 onChange={(e) => setAssignedTo(e.target.value)}
                 value={asigned_to}
               >
@@ -272,20 +316,35 @@ export default function CreateForm({ users: propUsers }) {
               </Select>
             </FormControl>
           </Grid>
-        </Grid> 
+          <Grid item xs={12} sm={6}>
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Status</InputLabel>
+              <Select
+                required
+                onChange={(e) => setStatus(e.target.value)}
+                value={status}
+              >
+                <MenuItem value="Open">Open</MenuItem>
+                <MenuItem value="InProgress">In Progress</MenuItem>
+                <MenuItem value="Closed">Closed</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12}>
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Ticket Status Comment</InputLabel>
+              <TextField
+                multiline
+                onChange={(e) => setTicketStatusComment(e.target.value)}
+                value={ticketStatusComment}
+              />
+            </FormControl>
+          </Grid>
+        </Grid>
         <Button className="btn-primary" type="submit" disabled={isLoading}>
-          {isLoading ? <span>Adding...</span> : <span>Add Ticket</span>}
+          {isLoading ? <span>Updating...</span> : <span>Update Ticket</span>}
         </Button>
       </form>
-
-      <button
-        onClick={() => setIsAIChatOpen(!isAIChatOpen)}
-        className="fixed bottom-4 right-4 bg-blue-500 hover:bg-blue-600 text-white rounded-full p-4 shadow-lg"
-      >
-        {isAIChatOpen ? "Close AI Help" : "Ask AI Assistant"}
-      </button>
-
-      {isAIChatOpen && <AIAssistant />}
     </>
   );
 }

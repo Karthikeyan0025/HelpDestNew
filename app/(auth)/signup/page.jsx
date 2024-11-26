@@ -15,7 +15,7 @@ const Signup = () => {
 
     const supabase = createClientComponentClient();
 
-    const { error } = await supabase.auth.signUp({
+    const { error, user } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -27,7 +27,21 @@ const Signup = () => {
       setFormError(error.message);
     }
 
-    if (!error) {
+    if (!error && user) {
+      const { error: roleError } = await supabase
+        .from('role_mapping')
+        .insert([
+          {
+            created_at: new Date().toISOString(),
+            user_id: user.id,
+            role_name: 'User'
+          }
+        ]);
+
+      if (roleError) {
+        console.error('Error inserting role mapping:', roleError.message);
+      }
+
       router.push("/verify");
     }
   };
