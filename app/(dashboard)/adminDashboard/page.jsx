@@ -29,7 +29,7 @@ const AdminDashboard = () => {
                     data.forEach(ticket => {
                         const status = ticket.status?.toLowerCase();
                         const department = ticket.department;
-                        if (status === 'inProgress') prevStats.inProgress++;
+                        if (status === 'inprogress') prevStats.inProgress++;
                         if (status === 'closed') prevStats.closed++;
                         if (status === 'open') prevStats.open++;
                         if (departmentCounts[department] !== undefined) departmentCounts[department]++;
